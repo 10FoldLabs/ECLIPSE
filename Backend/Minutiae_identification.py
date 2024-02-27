@@ -104,7 +104,7 @@ while cap.isOpened():
                 x, y, w, h = cv2.boundingRect(landmarksNP)
                 w = w + 30
 
-                print(f'x = {x :^10} |  {y :^10}')
+                print(f'x = {x :^8} |  {y :^8}')
  
                 # draw a rectangle around the bounding box
                 cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
