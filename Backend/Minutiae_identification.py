@@ -6,8 +6,17 @@ import numpy as np
 mpHands = mp.solutions.hands # create a MediaPipe Hands object
 hands = mpHands.Hands() # create a hands object
 mpDraw = mp.solutions.drawing_utils # create a drawing object
-model = cv2.dnn.readNetFromTensorflow('\EDSRx2.pb')
+model = cv2.dnn.readNetFromTensorflow('Backend/EDSRx2.pb')
 cap = cv2.VideoCapture(0) # create a video capture object
+
+# Example of usage:
+# edsr_model_path = 'path/to/edsr_model.pb'
+# edsr_net = cv2.dnn.readNetFromTensorflow(edsr_model_path)
+# frame = cv2.imread('input_frame.jpg')  # Replace with the actual frame
+# enhanced_frame = enhance_frame(frame, edsr_net)
+# cv2.imshow('Enhanced Frame', enhanced_frame)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
 def process_frame(frame):
 # create a named window for the cropped image
@@ -47,6 +56,28 @@ def angle_between(p1, p2, p3):
     cos = dot / norm # cosine of the angle
     angle = np.degrees(np.arccos(cos)) # angle in degrees
     return angle
+
+def enhance_frame(frame, edsr_net):
+    # Upscale the frame using the EDSR model
+    upscaled_frame = cv2.resize(frame, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    blob = cv2.dnn.blobFromImage(upscaled_frame, scalefactor=1.0 / 255, size=(upscaled_frame.shape[1], upscaled_frame.shape[0]), mean=(0, 0, 0), swapRB=True, crop=False)
+    edsr_net.setInput(blob)
+    output = edsr_net.forward()
+    upscaled_frame = output[0].transpose((1, 2, 0))
+    upscaled_frame = np.clip(upscaled_frame, 0, 255).astype(np.uint8)
+
+    # Apply image processing filters
+    upscaled_frame = cv2.filter2D(upscaled_frame, -1, np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]))
+
+    # Apply noise reduction
+    upscaled_frame = cv2.fastNlMeansDenoisingColored(upscaled_frame, None, 10, 10, 7, 21)
+
+    # Adjust color balance, saturation, and contrast
+    upscaled_frame = cv2.cvtColor(upscaled_frame, cv2.COLOR_BGR2HSV)
+    upscaled_frame[:, :, 1] = np.clip(upscaled_frame[:, :, 1] * 1.2, 0, 255)
+    upscaled_frame = cv2.cvtColor(upscaled_frame, cv2.COLOR_HSV2BGR)
+
+    return upscaled_frame
 
 def is_palm_splayed(landmarks):
     # check if the palm is splayed open as before
