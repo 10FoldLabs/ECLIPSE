@@ -1,12 +1,16 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import tensorflow as tf
 
 
 mpHands = mp.solutions.hands # create a MediaPipe Hands object
 hands = mpHands.Hands() # create a hands object
 mpDraw = mp.solutions.drawing_utils # create a drawing object
-model = cv2.dnn.readNetFromTensorflow('Backend/EDSRx2.pb')
+#model = cmodel = cv2.dnn.readNet('DetectionScript\EDSR.pb')
+
+model_path = 'DetectionScript/ESDR.pb'
+model = tf.keras.saved_model.load(model_path)
 cap = cv2.VideoCapture(0) # create a video capture object
 
 # Example of usage:
@@ -17,6 +21,8 @@ cap = cv2.VideoCapture(0) # create a video capture object
 # cv2.imshow('Enhanced Frame', enhanced_frame)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
+
+
 
 def enhance_frame(frame, edsr_net):
     # Upscale the frame using the EDSR model
