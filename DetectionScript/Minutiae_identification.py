@@ -40,15 +40,6 @@ def enhance_frame(frame, edsr_net):
 
     return upscaled_frame
 
-# Example of usage:
-# edsr_model_path = 'path/to/edsr_model.pb'
-# edsr_net = cv2.dnn.readNetFromTensorflow(edsr_model_path)
-# frame = cv2.imread('input_frame.jpg')  # Replace with the actual frame
-# enhanced_frame = enhance_frame(frame, edsr_net)
-# cv2.imshow('Enhanced Frame', enhanced_frame)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
 
 def process_frame(frame):
 # create a named window for the cropped image
