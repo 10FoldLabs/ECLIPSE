@@ -9,8 +9,6 @@ hands = mpHands.Hands() # create a hands object
 mpDraw = mp.solutions.drawing_utils # create a drawing object
 #model = cmodel = cv2.dnn.readNet('DetectionScript\EDSR.pb')
 
-model_path = 'DetectionScript/ESDR.pb'
-model = tf.keras.saved_model.load(model_path)
 cap = cv2.VideoCapture(0) # create a video capture object
 
 # Example of usage:
@@ -86,34 +84,8 @@ def angle_between(p1, p2, p3):
     angle = np.degrees(np.arccos(cos)) # angle in degrees
     return angle
 
-def enhance_frame(frame, edsr_net):
-    # Upscale the frame using the EDSR model
-    upscaled_frame = cv2.resize(frame, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    blob = cv2.dnn.blobFromImage(upscaled_frame, scalefactor=1.0 / 255, size=(upscaled_frame.shape[1], upscaled_frame.shape[0]), mean=(0, 0, 0), swapRB=True, crop=False)
-    edsr_net.setInput(blob)
-    output = edsr_net.forward()
-    upscaled_frame = output[0].transpose((1, 2, 0))
-    upscaled_frame = np.clip(upscaled_frame, 0, 255).astype(np.uint8)
-
-    # Apply image processing filters
-    upscaled_frame = cv2.filter2D(upscaled_frame, -1, np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]))
-
-    # Apply noise reduction
-    upscaled_frame = cv2.fastNlMeansDenoisingColored(upscaled_frame, None, 10, 10, 7, 21)
-
-    # Adjust color balance, saturation, and contrast
-    upscaled_frame = cv2.cvtColor(upscaled_frame, cv2.COLOR_BGR2HSV)
-    upscaled_frame[:, :, 1] = np.clip(upscaled_frame[:, :, 1] * 1.2, 0, 255)
-    upscaled_frame = cv2.cvtColor(upscaled_frame, cv2.COLOR_HSV2BGR)
-
-    return upscaled_frame
 
 def is_palm_splayed(landmarks):
-    # check if the palm is splayed open as before
-    # landmarks is a list of 21 (x, y) coordinates of the hand
-    # the order of the landmarks is defined by MediaPipe Hands
-    # https://google.github.io/mediapipe/solutions/hands.html
-
     # define the threshold angles for each finger
     # you can change these values according to your preference
     thumb_angle = 30 # angle between thumb, index finger, and wrist
@@ -143,11 +115,7 @@ while cap.isOpened():
     if not success: # if the frame is not valid, break the loop
         break
     
-    blob = cv2.dnn.blobFromImage(image, scalefactor=2.0, size=(0, 0), mean=(0, 0, 0), swapRB=True, crop=False)
-    model.setInput(blob)
-    upscaled_frame = model.forward()[0]
-    
-    image = cv2.cvtColor(upscaled_frame, cv2.COLOR_BGR2RGB) # convert the image to RGB
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # convert the image to RGB
     results = hands.process(image) # process the image using the hands object
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) # convert the image back to BGR
     CroppedWindow = False
