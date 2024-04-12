@@ -22,5 +22,6 @@ while cap.isOpened():
 
 cap.release() # release the video capture object
 
+
 # destroy all windows
 cv2.destroyAllWindows()

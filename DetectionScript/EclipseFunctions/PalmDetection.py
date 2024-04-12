@@ -10,6 +10,7 @@ def angle_between(p1, p2, p3):
     angle = np.degrees(np.arccos(cos)) # angle in degrees
     return angle
 
+
 def is_palm_splayed(landmarks):
     # define the threshold angles for each finger
     # you can change these values according to your preference

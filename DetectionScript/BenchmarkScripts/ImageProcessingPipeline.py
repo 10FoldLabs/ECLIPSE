@@ -72,6 +72,7 @@ while cap.isOpened():
     # fps = int(fps) 
     # fps = str(fps)
 
+
     # show the original image
     cv2.imshow('ECLIPSE', image) 
     fps += 1

@@ -28,6 +28,7 @@ def boostcontrast(img):
     enhanced_img = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
     return enhanced_img
 
+
 def process_frame(frame, landmarksNP, model:cv2.dnn_superres.DnnSuperResImpl):
     # create window for the cropped image
     cv2.namedWindow("Cropped", cv2.WINDOW_AUTOSIZE)

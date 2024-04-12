@@ -14,6 +14,7 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 # create a MediaPipe Hands object
 hands = mp.solutions.hands.Hands() 
 
+
 # load super sampling model
 sr = cv2.dnn_superres.DnnSuperResImpl.create()
 sr.readModel("FSRCNN_x4.pb")
