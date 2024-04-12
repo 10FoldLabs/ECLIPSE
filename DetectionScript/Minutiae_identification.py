@@ -2,162 +2,90 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import tensorflow as tf
-
-
-mpHands = mp.solutions.hands # create a MediaPipe Hands object
-hands = mpHands.Hands() # create a hands object
-mpDraw = mp.solutions.drawing_utils # create a drawing object
-#model = cmodel = cv2.dnn.readNet('DetectionScript\EDSR.pb')
-
-cap = cv2.VideoCapture(0) # create a video capture object
-
-# Example of usage:
-# edsr_model_path = 'path/to/edsr_model.pb'
-# edsr_net = cv2.dnn.readNetFromTensorflow(edsr_model_path)
-# frame = cv2.imread('input_frame.jpg')  # Replace with the actual frame
-# enhanced_frame = enhance_frame(frame, edsr_net)
-# cv2.imshow('Enhanced Frame', enhanced_frame)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
+import EclipseFunctions.PalmDetection as pd
+import EclipseFunctions.ImageProcessing as ip
 
 
 
-def enhance_frame(frame, edsr_net):
-    # Upscale the frame using the EDSR model
-    upscaled_frame = cv2.resize(frame, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    blob = cv2.dnn.blobFromImage(upscaled_frame, scalefactor=1.0 / 255, size=(upscaled_frame.shape[1], upscaled_frame.shape[0]), mean=(0, 0, 0), swapRB=True, crop=False)
-    edsr_net.setInput(blob)
-    output = edsr_net.forward()
-    upscaled_frame = output[0].transpose((1, 2, 0))
-    upscaled_frame = np.clip(upscaled_frame, 0, 255).astype(np.uint8)
+# create a video capture object
+cap = cv2.VideoCapture(0) 
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
-    # Apply image processing filters
-    upscaled_frame = cv2.filter2D(upscaled_frame, -1, np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]))
+# create a MediaPipe Hands object
+hands = mp.solutions.hands.Hands() 
 
-    # Apply noise reduction
-    upscaled_frame = cv2.fastNlMeansDenoisingColored(upscaled_frame, None, 10, 10, 7, 21)
-
-    # Adjust color balance, saturation, and contrast
-    upscaled_frame = cv2.cvtColor(upscaled_frame, cv2.COLOR_BGR2HSV)
-    upscaled_frame[:, :, 1] = np.clip(upscaled_frame[:, :, 1] * 1.2, 0, 255)
-    upscaled_frame = cv2.cvtColor(upscaled_frame, cv2.COLOR_HSV2BGR)
-
-    return upscaled_frame
+# load super sampling model
+sr = cv2.dnn_superres.DnnSuperResImpl.create()
+sr.readModel("FSRCNN_x4.pb")
+sr.setModel("fsrcnn",4)
 
 
-def process_frame(frame):
-# create a named window for the cropped image
-    # create a named window for the cropped image
-    cv2.namedWindow("Cropped", cv2.WINDOW_AUTOSIZE)
-    # get the bounding box coordinates and dimensions from the hand landmarks
-    x, y, w, h = cv2.boundingRect(landmarksNP)
-    # draw a rectangle around the bounding box
-    cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-    # cut the bounding box from the original image
-    cropped = image[y:y+h, x:x+w]
-    # apply image processing to the cropped image
-    # convert to grayscale
-    cropped = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
-    # apply histogram equalization
-    cropped = cv2.equalizeHist(cropped)
-    # apply Canny edge detector
-    cropped = cv2.Canny(cropped, 90, 100)
-    # apply opening operation
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
-    cropped = cv2.morphologyEx(cropped, cv2.MORPH_OPEN, kernel)
-    # apply closing operation
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
-    cropped = cv2.morphologyEx(cropped, cv2.MORPH_CLOSE, kernel)
-    # apply Gaussian blur to the cropped image
-    cropped = cv2.GaussianBlur(cropped, (5, 5), 0)
-
-    # show the cropped image
-    return cropped
-
-def angle_between(p1, p2, p3):
-    # calculate the angle between three points as before
-    v1 = np.array(p1) - np.array(p2) # vector from p2 to p1
-    v2 = np.array(p3) - np.array(p2) # vector from p2 to p3
-    dot = np.dot(v1, v2) # dot product of v1 and v2
-    norm = np.linalg.norm(v1) * np.linalg.norm(v2) # product of norms of v1 and v2
-    cos = dot / norm # cosine of the angle
-    angle = np.degrees(np.arccos(cos)) # angle in degrees
-    return angle
-
-
-def is_palm_splayed(landmarks):
-    # define the threshold angles for each finger
-    # you can change these values according to your preference
-    thumb_angle = 30 # angle between thumb, index finger, and wrist
-    index_angle = 10 # angle between index finger, middle finger, and palm
-    middle_angle = 10 # angle between middle finger, ring finger, and palm
-    ring_angle = 10 # angle between ring finger, pinky finger, and palm
-    pinky_angle = 10 # angle between pinky finger, palm, and wrist
-
-    # calculate the angles for each finger
-    thumb = angle_between(landmarks[4], landmarks[8], landmarks[0])
-    index = angle_between(landmarks[8], landmarks[12], landmarks[9])
-    middle = angle_between(landmarks[12], landmarks[16], landmarks[13])
-    ring = angle_between(landmarks[16], landmarks[20], landmarks[17])
-    pinky = angle_between(landmarks[20], landmarks[18], landmarks[0])
-
-    # check if all the angles are greater than the thresholds
-    if thumb > thumb_angle and index > index_angle and middle > middle_angle and ring > ring_angle and pinky > pinky_angle:
-        return True # palm is splayed open
-    else:
-        return False # palm is not splayed open
-
+# used to record the time at which we processed current frame 
+new_frame_time = 0
+prev_frame_time = 0
+# Our operations on the frame come here 
+font = cv2.FONT_HERSHEY_SIMPLEX 
 fps = 0
 start_time = cv2.getTickCount()
 
 while cap.isOpened():
-    success, image = cap.read() # read a frame from the camera
-    if not success: # if the frame is not valid, break the loop
+    success, image = cap.read()
+    if not success:
         break
-    
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # convert the image to RGB
-    results = hands.process(image) # process the image using the hands object
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) # convert the image back to BGR
-    CroppedWindow = False
-    if results.multi_hand_landmarks: # if there are any hand landmarks detected
-        for hand_landmarks in results.multi_hand_landmarks: # for each hand
-            landmarks = [(int(lm.x * image.shape[1]), int(lm.y * image.shape[0])) for lm in hand_landmarks.landmark] # get the landmarks as a list of tuples
+
+    font = cv2.FONT_HERSHEY_SIMPLEX 
+
+    # convert the image to RGB
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # process the image using the hands object
+    results = hands.process(image) 
+    # convert the image back to BGR
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) 
+
+    if results.multi_hand_landmarks: 
+        # for each hand get the landmarks as a list of tuples
+        for hand_landmarks in results.multi_hand_landmarks: # 
+            
+            landmarks = [(int(lm.x * image.shape[1]), int(lm.y * image.shape[0])) for lm in hand_landmarks.landmark] 
             landmarksNP = [(int(lm.x * image.shape[1]), int(lm.y * image.shape[0])) for lm in hand_landmarks.landmark]
             landmarksNP = np.array(landmarks, dtype=np.int32)
-            splayed = is_palm_splayed(landmarks) # check if the palm is splayed open
-            if splayed: # if the palm is splayed open
-                # create a named window for the cropped image
-                cv2.namedWindow("Cropped", cv2.WINDOW_AUTOSIZE)
+            splayed = pd.is_palm_splayed(landmarks) # check if the palm is splayed open
+            if splayed: # if the palm is splayed open create window for the cropped image
+
                 # get the bounding box coordinates and dimensions from the hand landmarks
                 x, y, w, h = cv2.boundingRect(landmarksNP)
-                w = w + 30
-
                 print(f'x = {x :^8} |  {y :^8}')
  
                 # draw a rectangle around the bounding box
                 cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                # cut the bounding box from the original image
+                # cut box from original image
                 if x > 0 and y > 0:
                     cropped = image[y:y+h, x:x+w]
-                    processed = process_frame(cropped)
-                # you can use the cropped variable as a new image stream to run through another function later
-                # for example, you can process the cropped image using the process_frame function
-                
-                
-                # show the cropped image and the processed image
-                cv2.imshow("Cropped", cropped)
-                cv2.imshow("Processed", processed)
+                    processed = ip.process_frame(image, landmarksNP, sr)
 
-    cv2.imshow('MediaPipe Hands', image) # show the original image
+                    cv2.imshow("Processed", processed)
+
+    # FPS DISPLAY (NOT FINISHED)
+    # new_frame_time = time.time() 
+    # fps = 1/(new_frame_time-prev_frame_time) 
+    # prev_frame_time = new_frame_time 
+    # fps = int(fps) 
+    # fps = str(fps)
+
+    # show the original image
+    cv2.imshow('ECLIPSE', image) 
+    fps += 1
     if cv2.waitKey(5) & 0xFF == 27: # exit on ESC
         break
 
-
 end_time = cv2.getTickCount()
 elapsed_time = (end_time - start_time) / cv2.getTickFrequency()
+
 average_fps = fps / elapsed_time
+
 print(f"Average FPS: {average_fps:.2f}")
 
 cap.release() # release the video capture object
-cv2.destroyWindow("Cropped") # destroy the window for the cropped image
-cv2.destroyAllWindows() # destroy all windows
+
+# destroy all windows
+cv2.destroyAllWindows()
