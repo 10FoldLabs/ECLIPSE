@@ -7,7 +7,6 @@ import EclipseFunctions.ImageProcessing as ip
 
 
 
-
 # create a video capture object
 cap = cv2.VideoCapture(0) 
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
